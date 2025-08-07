@@ -316,7 +316,18 @@
             <h1>📈 股票投資組合 Dashboard</h1>
             <p>即時監控您的投資表現</p>
         </div>
-
+        
+<div class="config-section">
+    <div class="url-input-container">
+        <input type="text" class="url-input" id="csvUrl" 
+               placeholder="請輸入 Google Sheets CSV 連結 (或留空使用預設連結)"
+               value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0ZOzpAWlnoXgbD8B58PYwbIDuLdKTHgKDvRFVD8CVmzox5iYfSuCpgx7FA5zyWncKhXvOegdlT7SM/pub?gid=978973401&single=true&output=csv">
+        <button class="btn" onclick="loadData()">
+            <span id="loadingText">載入資料</span>
+        </button>
+    </div>
+    <div id="status"></div>
+</div>
         <div class="dashboard" id="dashboard" style="display: none;">
             <div class="summary-cards" id="summaryCards">
                 <!-- 摘要卡片將動態生成 -->
