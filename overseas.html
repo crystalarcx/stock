@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>海外股票投資組合 Dashboard</title>
+    <title>富邦英股總覽</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
@@ -329,8 +329,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🌏 海外股票投資組合 Dashboard</h1>
-            <p>追蹤您的國際投資表現與匯率影響</p>
+            <h1>富邦英股總覽</h1>
         </div>
 
         <div class="config-section">
@@ -580,14 +579,14 @@
 
             summaryCards.innerHTML = `
                 <div class="summary-card">
-                    <h3>投資成本</h3>
+                    <h3>投資成本 (美元)</h3>
                     <div class="value">${formatUSD(totals.totalCostUSD)}</div>
                     <div class="change">持股檔數: ${stockData.length}</div>
                 </div>
                 <div class="summary-card">
-                    <h3>目前市值</h3>
-                    <div class="value">${formatUSD(totals.totalValueUSD)}</div>
-                    <div class="sub-value">${formatTWD(totals.totalValueNTD)}</div>
+                    <h3>目前市值 </h3>
+                    <div class="value">${formatUSD(totals.totalValueUSD)}美元</div>
+                    <div class="sub-value">${formatTWD(totals.totalValueNTD)}台幣</div>
                 </div>
                 <div class="summary-card currency">
                     <h3>投資損益 (美元)</h3>
@@ -609,11 +608,6 @@
                         ${formatTWD(totals.totalPLNTD)}
                     </div>
                     <div class="change">${formatPercentage(returnRateNTD)}</div>
-                </div>
-                <div class="summary-card">
-                    <h3>持股狀況</h3>
-                    <div class="value">${stockData.length}</div>
-                    <div class="change">獲利 ${profitCount} | 虧損 ${lossCount}</div>
                 </div>
             `;
         }
