@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投資組合管理系統</title>
+    <title>定期定額總覽</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
@@ -342,7 +342,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            min-width: 1000px;
         }
 
         th, td {
@@ -350,6 +350,7 @@
             text-align: right;
             border-bottom: 1px solid #f0f0f0;
             font-size: 0.85rem;
+            vertical-align: top;
         }
 
         th:first-child, td:first-child {
@@ -362,7 +363,28 @@
             min-width: 120px;
         }
 
-        /* iPhone 16 系列優化 */
+        /* TradingView 圖表樣式 */
+        .chart-column {
+            width: 200px;
+            text-align: center;
+            padding: 8px 4px !important;
+        }
+
+        .tradingview-widget {
+            width: 100%;
+            height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .tradingview-widget iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* 手機版優化 */
         @media screen and (max-width: 430px) {
             table {
                 min-width: 100%;
@@ -389,6 +411,11 @@
                 font-size: 0.65rem !important;
                 line-height: 1.2;
                 margin-top: 1px;
+            }
+
+            /* 手機版隱藏圖表欄位 */
+            .chart-column {
+                display: none;
             }
 
             /* 緊湊型持股表格 */
@@ -444,48 +471,12 @@
                 margin-top: 2px;
             }
 
-            .mobile-chart-container {
-                width: 100%;
-                height: 120px;
-                margin: 10px 0;
-                border-radius: 6px;
-                overflow: hidden;
-                background: #f8f9fa;
-                position: relative;
-            }
-
-            .mobile-chart-container iframe {
-                width: 100%;
-                height: 100%;
-                border: none;
-                background: transparent;
-            }
-
-            .chart-toggle {
-                background: #3498db;
-                color: white;
-                border: none;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-size: 0.7rem;
-                cursor: pointer;
-                margin-top: 4px;
-                transition: background 0.3s ease;
-            }
-
-            .chart-toggle:hover {
-                background: #2980b9;
-            }
-
-            .chart-toggle.active {
-                background: #27ae60;
-            }
-
             .mobile-stock-details {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 8px;
                 font-size: 0.75rem;
+                margin-bottom: 10px;
             }
 
             .mobile-detail-item {
@@ -503,6 +494,33 @@
             .mobile-detail-value {
                 font-weight: 600;
                 color: #2c3e50;
+            }
+
+            .mobile-chart {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+            }
+
+            .mobile-chart h4 {
+                font-size: 0.8rem;
+                color: #2c3e50;
+                margin-bottom: 8px;
+                text-align: center;
+            }
+
+            .mobile-tradingview-widget {
+                width: 100%;
+                height: 150px;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #e0e0e0;
+            }
+
+            .mobile-tradingview-widget iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
             }
         }
 
@@ -683,19 +701,19 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 投資組合管理系統</h1>
-            <div class="subtitle">Jason • Rita • OS 海外投資</div>
+            <h1>📊定期定額總覽</h1>
+            <div class="subtitle">Jason • Rita • 富邦英股</div>
         </div>
 
         <div class="tabs">
             <button class="tab-button active" onclick="switchTab(event, 'jason')">
-                📈 Jason定期定額
+                🚘 Jason定期定額
             </button>
             <button class="tab-button" onclick="switchTab(event, 'rita')">
-                💰 Rita定期定額
+                👩🏻 Rita定期定額
             </button>
             <button class="tab-button" onclick="switchTab(event, 'os')">
-                🌐 富邦英股總覽
+                🇬🇧 富邦英股總覽
             </button>
         </div>
 
@@ -842,6 +860,53 @@
             }
         };
 
+        // TradingView Widget 生成函數
+        function generateTradingViewWidget(symbol, isUS = false) {
+            const exchange = isUS ? 'NASDAQ' : 'TPE';
+            const fullSymbol = isUS ? symbol : `${exchange}:${symbol}`;
+            
+            const widgetConfig = {
+                "symbol": fullSymbol,
+                "interval": "D",
+                "timezone": "Asia/Taipei",
+                "theme": "light",
+                "style": "1",
+                "locale": "zh_TW",
+                "toolbar_bg": "#f1f3f6",
+                "enable_publishing": false,
+                "hide_top_toolbar": true,
+                "hide_legend": true,
+                "save_image": false,
+                "container_id": "",
+                "height": "100%",
+                "width": "100%"
+            };
+
+            const baseUrl = "https://s.tradingview.com/widgetembed/";
+            const params = new URLSearchParams({
+                frameElementId: "tradingview_chart",
+                symbol: fullSymbol,
+                interval: "D",
+                hidesidetoolbar: "1",
+                saveimage: "0",
+                toolbarbg: "f1f3f6",
+                studiesOverrides: "{}",
+                theme: "light",
+                timezone: "Asia/Taipei",
+                studies: "[]",
+                overrides: "{}",
+                enabled_features: "[]",
+                disabled_features: "[]",
+                locale: "zh_TW",
+                utm_source: "localhost",
+                utm_medium: "widget_new",
+                utm_campaign: "chart",
+                utm_term: fullSymbol
+            });
+
+            return `<iframe src="${baseUrl}?${params.toString()}" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen></iframe>`;
+        }
+
         // 頁籤切換
         function switchTab(event, tabName) {
             // 隱藏所有內容
@@ -898,62 +963,8 @@
             return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;
         }
 
-        // 生成 TradingView 圖表 URL
-        function getTradingViewChart(symbol, isOverseas = false) {
-            const baseUrl = 'https://www.tradingview.com/widgetembed/';
-            
-            // 根據是否為海外股票調整交易所前綴
-            let formattedSymbol = symbol;
-            if (isOverseas) {
-                // 海外ETF通常在倫敦交易所
-                formattedSymbol = `LSE:${symbol}`;
-            } else {
-                // 台股加上TPE前綴
-                formattedSymbol = `TPE:${symbol}`;
-            }
-            
-            const params = new URLSearchParams({
-                frameType: 'symbol',
-                symbol: formattedSymbol,
-                interval: 'D',
-                hidesidetoolbar: '1',
-                symboledit: '1',
-                saveimage: '1',
-                toolbarbg: 'f1f3f6',
-                studies: '',
-                hideideas: '1',
-                theme: 'light',
-                style: '1',
-                timezone: 'Asia/Taipei',
-                studies_overrides: '{}',
-                overrides: '{}',
-                enabled_features: '[]',
-                disabled_features: '[]',
-                locale: 'zh_TW',
-                utm_source: 'investment-portfolio',
-                utm_medium: 'widget_new',
-                utm_campaign: 'chart',
-                utm_term: formattedSymbol
-            });
-            
-            return `${baseUrl}?${params.toString()}`;
-        }
-
-        // 切換圖表顯示
-        function toggleChart(cardId) {
-            const chartContainer = document.getElementById(`chart-${cardId}`);
-            const toggleBtn = document.getElementById(`toggle-${cardId}`);
-            
-            if (chartContainer.style.display === 'none' || !chartContainer.style.display) {
-                chartContainer.style.display = 'block';
-                toggleBtn.textContent = '隱藏走勢';
-                toggleBtn.classList.add('active');
-            } else {
-                chartContainer.style.display = 'none';
-                toggleBtn.textContent = '顯示走勢';
-                toggleBtn.classList.remove('active');
-            }
-        }
+        // 顏色生成
+        function generateColors(count) {
             const baseColors = [
                 '#3498db', '#e74c3c', '#2ecc71', '#f39c12',
                 '#9b59b6', '#1abc9c', '#34495e', '#e67e22',
@@ -1463,7 +1474,7 @@
                                     return [
                                         `${context.label}`,
                                         `市值: ${formatCurrency(context.raw)}`,
-                                        `佔比: ${percentage}%`,
+                                        `占比: ${percentage}%`,
                                         `損益: ${formatCurrency(stock["未實現損益"])}`
                                     ];
                                 }
@@ -1494,7 +1505,7 @@
                         data: data,
                         backgroundColor: colors,
                         borderWidth: 2,
-                        borderColor: '#faf7f4'
+                        borderColor: '#fff'
                     }]
                 },
                 options: {
@@ -1519,7 +1530,7 @@
                                     return [
                                         `${context.label}`,
                                         `市值: ${formatUSD(context.raw)}`,
-                                        `佔比: ${percentage}%`,
+                                        `占比: ${percentage}%`,
                                         `損益: ${formatUSD(stock["未實現損益(USD)"])}`
                                     ];
                                 }
@@ -1801,18 +1812,14 @@
                 `;
                 
                 let html = '';
-                stockData[person].forEach((stock, index) => {
+                stockData[person].forEach(stock => {
                     const profitLossClass = stock["未實現損益"] >= 0 ? 'profit' : 'loss';
-                    const cardId = `${person}-${index}`;
                     html += `
                         <div class="mobile-stock-card">
                             <div class="mobile-stock-header">
                                 <div>
                                     <div class="mobile-stock-code">${stock["股票代號"]}</div>
                                     <div class="mobile-stock-name">${stock["股票名稱"]}</div>
-                                    <button class="chart-toggle" id="toggle-${cardId}" onclick="toggleChart('${cardId}')">
-                                        顯示走勢
-                                    </button>
                                 </div>
                                 <div>
                                     <div class="mobile-current-price">${formatCurrency(stock["目前股價"])}</div>
@@ -1820,12 +1827,6 @@
                                         ${formatPercentage(stock["報酬率"])}
                                     </div>
                                 </div>
-                            </div>
-                            <div id="chart-${cardId}" class="mobile-chart-container" style="display: none;">
-                                <iframe src="${getTradingViewChart(stock["股票代號"], false)}" 
-                                        title="${stock["股票代號"]} 股價走勢圖"
-                                        loading="lazy">
-                                </iframe>
                             </div>
                             <div class="mobile-stock-details">
                                 <div class="mobile-detail-item">
@@ -1843,6 +1844,12 @@
                                 <div class="mobile-detail-item">
                                     <span class="mobile-detail-label">未實現損益</span>
                                     <span class="mobile-detail-value ${profitLossClass}">${formatCurrency(stock["未實現損益"])}</span>
+                                </div>
+                            </div>
+                            <div class="mobile-chart">
+                                <h4>📈 股價走勢圖</h4>
+                                <div class="mobile-tradingview-widget">
+                                    ${generateTradingViewWidget(stock["股票代號"], false)}
                                 </div>
                             </div>
                         </div>
@@ -1871,6 +1878,7 @@
                             <th>目前市值</th>
                             <th>未實現損益</th>
                             <th>報酬率</th>
+                            <th class="chart-column">股價走勢圖</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1890,6 +1898,11 @@
                             <td>${formatCurrency(stock["目前總市值"])}</td>
                             <td class="${profitLossClass}">${formatCurrency(stock["未實現損益"])}</td>
                             <td class="${profitLossClass}">${formatPercentage(stock["報酬率"])}</td>
+                            <td class="chart-column">
+                                <div class="tradingview-widget">
+                                    ${generateTradingViewWidget(stock["股票代號"], false)}
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
@@ -1915,11 +1928,10 @@
                 `;
                 
                 let html = '';
-                stockData.os.forEach((stock, index) => {
+                stockData.os.forEach(stock => {
                     const profitLossUSDClass = stock["未實現損益(USD)"] >= 0 ? 'profit' : 'loss';
                     const profitLossNTDClass = stock["總未實現損益(計算匯差,NTD)"] >= 0 ? 'profit' : 'loss';
                     const fxClass = stock["匯率損益(NTD)"] >= 0 ? 'profit' : 'loss';
-                    const cardId = `os-${index}`;
                     
                     html += `
                         <div class="mobile-stock-card">
@@ -1927,9 +1939,6 @@
                                 <div>
                                     <div class="mobile-stock-code">${stock["股票名稱"]}</div>
                                     <div class="mobile-stock-name">持股 ${stock["總持有股數"].toLocaleString()} 股</div>
-                                    <button class="chart-toggle" id="toggle-${cardId}" onclick="toggleChart('${cardId}')">
-                                        顯示走勢
-                                    </button>
                                 </div>
                                 <div>
                                     <div class="mobile-current-price">${formatUSD(stock["目前美價"])}</div>
@@ -1937,12 +1946,6 @@
                                         ${formatPercentage(stock["總未實現損益%"])}
                                     </div>
                                 </div>
-                            </div>
-                            <div id="chart-${cardId}" class="mobile-chart-container" style="display: none;">
-                                <iframe src="${getTradingViewChart(stock["股票名稱"], true)}" 
-                                        title="${stock["股票名稱"]} 股價走勢圖"
-                                        loading="lazy">
-                                </iframe>
                             </div>
                             <div class="mobile-stock-details">
                                 <div class="mobile-detail-item">
@@ -1976,6 +1979,12 @@
                                     </span>
                                 </div>
                             </div>
+                            <div class="mobile-chart">
+                                <h4>📈 股價走勢圖</h4>
+                                <div class="mobile-tradingview-widget">
+                                    ${generateTradingViewWidget(stock["股票名稱"], true)}
+                                </div>
+                            </div>
                         </div>
                     `;
                 });
@@ -2006,6 +2015,7 @@
                             <th>匯率損益<br>(NTD)</th>
                             <th>總損益<br>(NTD)</th>
                             <th>總報酬率<br>(%)</th>
+                            <th class="chart-column">股價走勢圖</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2029,6 +2039,11 @@
                             <td class="${fxClass}">${formatCurrency(stock["匯率損益(NTD)"])}</td>
                             <td class="${profitLossNTDClass}">${formatCurrency(stock["總未實現損益(計算匯差,NTD)"])}</td>
                             <td class="${profitLossNTDClass}">${formatPercentage(stock["總未實現損益%"])}</td>
+                            <td class="chart-column">
+                                <div class="tradingview-widget">
+                                    ${generateTradingViewWidget(stock["股票名稱"], true)}
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
@@ -2113,29 +2128,6 @@
                 ];
             }, 1000);
         });
-
-        // 監聽頁籤切換，在切換到新頁籤時載入資料
-        function switchTab(event, tabName) {
-            // 隱藏所有內容
-            const tabContents = document.querySelectorAll('.tab-content');
-            tabContents.forEach(content => content.classList.remove('active'));
-
-            // 移除所有按鈕的活躍狀態
-            const tabButtons = document.querySelectorAll('.tab-button');
-            tabButtons.forEach(button => button.classList.remove('active'));
-
-            // 顯示選中的內容
-            document.getElementById(tabName).classList.add('active');
-            event.currentTarget.classList.add('active');
-
-            // 如果該頁籤還沒有載入資料，則自動載入
-            if (tabName === 'rita' && stockData.rita.length > 0 && !document.getElementById('ritaDashboard').style.display) {
-                renderDashboard('rita');
-            } else if (tabName === 'os' && stockData.os.length > 0 && !document.getElementById('osDashboard').style.display) {
-                renderOSDashboard();
-            }
-        }
     </script>
 </body>
 </html>
-                
