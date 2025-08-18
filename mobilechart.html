@@ -862,7 +862,7 @@
 
         // TradingView Widget 生成函數
         function generateTradingViewWidget(symbol, isUS = false) {
-            const exchange = isUS ? 'NASDAQ' : 'TPE';
+            const exchange = isUS ? 'NASDAQ' : 'TWSE';
             const fullSymbol = isUS ? symbol : `${exchange}:${symbol}`;
             
             const widgetConfig = {
