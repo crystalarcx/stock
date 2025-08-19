@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>定期定額總覽</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-button {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .tab-button.active {
+            color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #3498db;
+        }
+
+        .tab-button:hover:not(.active) {
+            background: rgba(52, 152, 219, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .config-section {
+            padding: 15px;
+            background: rgba(248, 249, 250, 0.8);
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: 500;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .dashboard {
+            padding: 15px;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(0);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .summary-card.currency {
+            background: linear-gradient(135deg, #a8b5c7, #8fa4b5);
+            color: #1a1a1a;
+        }
+
+        .summary-card.total {
+            background: linear-gradient(135deg, #c7a8a8, #b58f8f);
+            color: #1a1a1a;
+        }
+
+        .summary-card.dca-settings {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+            text-align: left;
+        }
+
+        .summary-card h3 {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .summary-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .sub-value {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .change {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .dca-item {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .dca-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .stock-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .stock-code-name {
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .stock-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .detail-item {
+            text-align: center;
+        }
+
+        .detail-label {
+            opacity: 0.8;
+            font-size: 0.75rem;
+        }
+
+        .detail-value {
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .chart-card h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.2rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 10px;
+        }
+
+        .multi-chart-container {
+            grid-column: span 1;
+        }
+
+        .holdings-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .holdings-table h3 {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 0;
+            color: #2c3e50;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 1.1rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            text-align: right;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.85rem;
+        }
+
+        th:first-child, td:first-child {
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 1;
+            min-width: 120px;
+        }
+
+        /* 股價走勢圖列樣式 */
+        .chart-column {
+            width: 200px;
+            min-width: 200px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .stock-chart-container {
+            width: 180px;
+            height: 120px;
+            margin: 5px auto;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+
+        .stock-chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        /* iPhone 16 系列優化 */
+        @media screen and (max-width: 430px) {
+            table {
+                min-width: 100%;
+                font-size: 0.75rem;
+            }
+
+            th, td {
+                padding: 6px 4px;
+                font-size: 0.72rem;
+                white-space: nowrap;
+            }
+
+            th:first-child, td:first-child {
+                min-width: 80px;
+                max-width: 80px;
+                padding: 6px 3px;
+            }
+
+            .stock-code {
+                font-size: 0.7rem;
+            }
+
+            .stock-code + div {
+                font-size: 0.65rem !important;
+                line-height: 1.2;
+                margin-top: 1px;
+            }
+
+            /* 緊湊型持股表格 */
+            .holdings-table-mobile {
+                display: block;
+            }
+
+            .holdings-table-desktop {
+                display: none;
+            }
+
+            .mobile-stock-card {
+                background: white;
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                border: 1px solid #f0f0f0;
+            }
+
+            .mobile-stock-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 10px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+
+            .mobile-stock-code {
+                font-family: 'Courier New', monospace;
+                font-weight: 600;
+                font-size: 0.9rem;
+                color: #2c3e50;
+            }
+
+            .mobile-stock-name {
+                font-size: 0.75rem;
+                color: #7f8c8d;
+                margin-top: 2px;
+            }
+
+            .mobile-current-price {
+                text-align: right;
+                font-weight: 600;
+                font-size: 0.9rem;
+                color: #2c3e50;
+            }
+
+            .mobile-profit-loss {
+                font-size: 0.75rem;
+                font-weight: 600;
+                margin-top: 2px;
+            }
+
+            .mobile-stock-details {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                font-size: 0.75rem;
+            }
+
+            .mobile-detail-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 4px 0;
+            }
+
+            .mobile-detail-label {
+                color: #7f8c8d;
+                font-size: 0.7rem;
+            }
+
+            .mobile-detail-value {
+                font-weight: 600;
+                color: #2c3e50;
+            }
+
+            .mobile-chart-section {
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #f0f0f0;
+            }
+
+            .mobile-chart-container {
+                width: 100%;
+                height: 150px;
+                border: 1px solid #e9ecef;
+                border-radius: 6px;
+                overflow: hidden;
+                background: #f8f9fa;
+                margin-top: 8px;
+            }
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.8rem;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        th:first-child {
+            z-index: 3;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .profit {
+            color: #27ae60;
+            font-weight: 700;
+        }
+
+        .loss {
+            color: #e74c3c;
+            font-weight: 700;
+        }
+
+        .stock-code {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 手機版優化 */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                border-radius: 15px;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .tab-button {
+                padding: 12px 15px;
+                font-size: 14px;
+                min-width: 100px;
+            }
+
+            .dashboard {
+                padding: 10px;
+            }
+
+            .summary-cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+
+            .summary-card {
+                padding: 15px;
+            }
+
+            .summary-card .value {
+                font-size: 1.5rem;
+            }
+
+            .charts-container {
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+
+            .chart-card {
+                padding: 15px;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+
+            .stock-details {
+                grid-template-columns: 1fr;
+                gap: 5px;
+                text-align: center;
+            }
+
+            th, td {
+                padding: 8px 4px;
+                font-size: 0.8rem;
+            }
+
+            .holdings-table h3 {
+                padding: 12px;
+                font-size: 1rem;
+            }
+
+            .chart-column {
+                width: 150px;
+                min-width: 150px;
+            }
+
+            .stock-chart-container {
+                width: 140px;
+                height: 100px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .tab-button {
+                padding: 10px 12px;
+                font-size: 13px;
+                min-width: 90px;
+            }
+
+            .summary-card .value {
+                font-size: 1.3rem;
+            }
+
+            .chart-container {
+                height: 200px;
+            }
+
+            th, td {
+                padding: 6px 3px;
+                font-size: 0.75rem;
+            }
+        }
+
+        /* 橫向滾動優化 */
+        .tabs::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        .tabs::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .tabs::-webkit-scrollbar-thumb {
+            background: #3498db;
+            border-radius: 3px;
+        }
+
+        .table-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #3498db;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊定期定額總覽</h1>
+            <div class="subtitle">Jason • Rita • 富邦英股</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab(event, 'jason')">
+                🚘 Jason定期定額
+            </button>
+            <button class="tab-button" onclick="switchTab(event, 'rita')">
+                👩🏻 Rita定期定額
+            </button>
+            <button class="tab-button" onclick="switchTab(event, 'os')">
+                🇬🇧 富邦英股總覽
+            </button>
+        </div>
+
+        <!-- Jason 頁籤 -->
+        <div id="jason" class="tab-content active">
+            <div class="config-section">
+                <button class="btn" onclick="loadJasonData()">
+                    <span id="jasonLoadingText">🔄 更新Jason資料</span>
+                </button>
+                <div id="jasonStatus"></div>
+            </div>
+
+            <div class="dashboard" id="jasonDashboard" style="display: none;">
+                <div class="summary-cards" id="jasonSummaryCards"></div>
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>投資組合分布</h3>
+                        <div class="chart-container">
+                            <canvas id="jasonPortfolioChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>損益分析</h3>
+                        <div class="chart-container">
+                            <canvas id="jasonProfitLossChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="holdings-table">
+                    <h3>持股明細</h3>
+                    <div class="table-container">
+                        <table id="jasonHoldingsTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rita 頁籤 -->
+        <div id="rita" class="tab-content">
+            <div class="config-section">
+                <button class="btn" onclick="loadRitaData()">
+                    <span id="ritaLoadingText">🔄 更新Rita資料</span>
+                </button>
+                <div id="ritaStatus"></div>
+            </div>
+
+            <div class="dashboard" id="ritaDashboard" style="display: none;">
+                <div class="summary-cards" id="ritaSummaryCards"></div>
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>投資組合分布</h3>
+                        <div class="chart-container">
+                            <canvas id="ritaPortfolioChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>損益分析</h3>
+                        <div class="chart-container">
+                            <canvas id="ritaProfitLossChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="holdings-table">
+                    <h3>持股明細</h3>
+                    <div class="table-container">
+                        <table id="ritaHoldingsTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OS 頁籤 -->
+        <div id="os" class="tab-content">
+            <div class="config-section">
+                <button class="btn" onclick="loadOSData()">
+                    <span id="osLoadingText">🔄 更新海外投資資料</span>
+                </button>
+                <div id="osStatus"></div>
+            </div>
+
+            <div class="dashboard" id="osDashboard" style="display: none;">
+                <div class="summary-cards" id="osSummaryCards"></div>
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>投資組合分布 (USD)</h3>
+                        <div class="chart-container">
+                            <canvas id="osPortfolioChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>投資損益分析</h3>
+                        <div class="chart-container">
+                            <canvas id="osProfitLossChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card multi-chart-container">
+                        <h3>匯率影響分析</h3>
+                        <div class="chart-container">
+                            <canvas id="osExchangeRateChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="holdings-table">
+                    <h3>海外持股明細</h3>
+                    <div class="table-container">
+                        <table id="osHoldingsTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        let charts = {
+            jason: { portfolio: null, profitLoss: null },
+            rita: { portfolio: null, profitLoss: null },
+            os: { portfolio: null, profitLoss: null, exchangeRate: null }
+        };
+
+        let stockData = {
+            jason: [],
+            rita: [],
+            os: []
+        };
+
+        let dcaSettings = {
+            jason: [],
+            rita: []
+        };
+
+        // CSV URLs
+        const CSV_URLS = {
+            jason: {
+                holdings: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0ZOzpAWlnoXgbD8B58PYwbIDuLdKTHgKDYRFVD8CVmzox5iYfSuCpgx7FA5zyWncKhXvOegdlT7SM/pub?gid=978973401&single=true&output=csv',
+                dca: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0ZOzpAWlnoXgbD8B58PYwbIDuLdKTHgKDYRFVD8CVmzox5iYfSuCpgx7FA5zyWncKhXvOegdlT7SM/pub?gid=0&single=true&output=csv'
+            },
+            rita: {
+                holdings: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=978973401&single=true&output=csv',
+                dca: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=0&single=true&output=csv'
+            },
+            os: {
+                holdings: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLh_tEC6tU48fIQsBv6RoFFVj2jZggf8eD2TL2DcKksWzvXBSm1oMtq4OzNlJWrvoiDfti8RQPki2L/pub?gid=1484612057&single=true&output=csv'
+            }
+        };
+
+        // 股票代碼映射 (用於 Investing.com 小工具)
+        const STOCK_SYMBOL_MAP = {
+            // 台股ETF
+            '0050': '1154201', // 元大台灣50
+            '0056': '1154202', // 元大高股息
+            '006208': '1157726', // 富邦台50
+            '00878': '1178468', // 國泰永續高股息
+            '00713': '1165384', // 元大台灣高息低波
+            '00692': '1164273', // 富邦公司治理
+            '00881': '1178469', // 國泰台灣5G+
+            '00757': '1168542', // 統一FANG+
+            '00885': '1178470', // 富邦未來車
+            '00891': '1178471', // 中信關鍵半導體
+            // 常見台股
+            '2330': '1154203', // 台積電
+            '2454': '1154204', // 聯發科
+            '2317': '1154205', // 鴻海
+            '2308': '1154206', // 台達電
+            // 海外ETF (使用美股代碼)
+            'VWRA': 'VWRA', // Vanguard FTSE All-World UCITS ETF
+            'VUAA': 'VUAA', // Vanguard S&P 500 UCITS ETF
+            'VTI': '8833', // Vanguard Total Stock Market ETF
+            'VOO': '8839', // Vanguard S&P 500 ETF
+            'QQQ': '8840', // Invesco QQQ Trust
+            'SPY': '8868' // SPDR S&P 500 ETF Trust
+        };
+
+        // 頁籤切換
+        function switchTab(event, tabName) {
+            // 隱藏所有內容
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // 移除所有按鈕的活躍狀態
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => button.classList.remove('active'));
+
+            // 顯示選中的內容
+            document.getElementById(tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            // 如果該頁籤還沒有載入資料，則自動載入
+            if (tabName === 'rita' && stockData.rita.length > 0 && !document.getElementById('ritaDashboard').style.display) {
+                renderDashboard('rita');
+            } else if (tabName === 'os' && stockData.os.length > 0 && !document.getElementById('osDashboard').style.display) {
+                renderOSDashboard();
+            }
+        }
+
+        // 狀態顯示函數
+        function showStatus(person, message, type = 'info') {
+            const statusDiv = document.getElementById(`${person}Status`);
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // 數字解析
+        function parseNumber(str) {
+            if (typeof str === 'number') return str;
+            if (!str || str === '') return 0;
+            return parseFloat(str.toString().replace(/[,%"]/g, '')) || 0;
+        }
+
+        // 格式化函數
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('zh-TW', {
+                style: 'currency',
+                currency: 'TWD',
+                minimumFractionDigits: 0
+            }).format(num);
+        }
+
+        function formatUSD(num) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0
+            }).format(num);
+        }
+
+        function formatPercentage(num) {
+            return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;
+        }
+
+        // 顏色生成
+        function generateColors(count) {
+            const baseColors = [
+                '#3498db', '#e74c3c', '#2ecc71', '#f39c12',
+                '#9b59b6', '#1abc9c', '#34495e', '#e67e22',
+                '#95a5a6', '#f1c40f', '#8e44ad', '#16a085',
+                '#27ae60', '#d35400', '#2980b9', '#c0392b'
+            ];
+            
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                if (i < baseColors.length) {
+                    colors.push(baseColors[i]);
+                } else {
+                    const hue = (i * 137.508) % 360;
+                    colors.push(`hsl(${hue}, 70%, 60%)`);
+                }
+            }
+            return colors;
+        }
+
+        // 創建股價走勢圖小工具
+        function createStockChart(stockCode, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const symbolId = STOCK_SYMBOL_MAP[stockCode] || stockCode;
+            
+            // 清空容器
+            container.innerHTML = '';
+
+            try {
+                // 創建 Investing.com 小工具
+                const widgetScript = document.createElement('script');
+                widgetScript.type = 'text/javascript';
+                widgetScript.async = true;
+                widgetScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+                
+                const widgetConfig = {
+                    "symbol": `TSE:${stockCode}`, // 使用台股格式
+                    "width": "100%",
+                    "height": "100%",
+                    "locale": "zh_TW",
+                    "dateRange": "3M",
+                    "colorTheme": "light",
+                    "trendLineColor": "rgba(52, 152, 219, 1)",
+                    "underLineColor": "rgba(52, 152, 219, 0.3)",
+                    "underLineBottomColor": "rgba(52, 152, 219, 0)",
+                    "isTransparent": false,
+                    "autosize": false,
+                    "largeChartUrl": ""
+                };
+
+                const configScript = document.createElement('script');
+                configScript.textContent = `
+                    (function() {
+                        const container = document.getElementById('${containerId}');
+                        if (container) {
+                            const iframe = document.createElement('iframe');
+                            iframe.src = 'https://widget.investing.com/live-currency-cross-rates?theme=lightTheme&roundedCorners=true&pairs=1&tabs=1';
+                            iframe.width = '100%';
+                            iframe.height = '100%';
+                            iframe.frameBorder = '0';
+                            iframe.allowTransparency = 'true';
+                            iframe.marginWidth = '0';
+                            iframe.marginHeight = '0';
+                            
+                            // 針對台股使用不同的圖表服務
+                            const stockCode = '${stockCode}';
+                            let chartUrl = '';
+                            
+                            if (stockCode.match(/^\\d{4,6}$/)) {
+                                // 台股代碼
+                                chartUrl = \`https://invest.cnyes.com/twstock/\${stockCode}\`;
+                                iframe.innerHTML = '<div style="padding: 10px; text-align: center; color: #666; font-size: 12px;">載入中...</div>';
+                            } else {
+                                // 海外股票
+                                chartUrl = \`https://widget.investing.com/instruments/\${stockCode}\`;
+                            }
+                            
+                            container.appendChild(iframe);
+                            
+                            // 設置載入失敗的備用顯示
+                            setTimeout(() => {
+                                if (container.children.length === 1) {
+                                    container.innerHTML = '<div class="stock-chart-loading">📈 ' + stockCode + '</div>';
+                                }
+                            }, 5000);
+                        }
+                    })();
+                `;
+
+                container.appendChild(configScript);
+                
+            } catch (error) {
+                console.error('創建股價圖表失敗:', error);
+                container.innerHTML = `<div class="stock-chart-loading">📈 ${stockCode}</div>`;
+            }
+        }
+
+        // Jason 資料載入
+        async function loadJasonData() {
+            const loadingText = document.getElementById('jasonLoadingText');
+            loadingText.innerHTML = '<span class="loading-spinner"></span> 載入中...';
+            showStatus('jason', '正在載入Jason的資料...', 'loading');
+
+            try {
+                const [holdingsResult, dcaResult] = await Promise.all([
+                    loadHoldingsData('jason'),
+                    loadDCASettings('jason')
+                ]);
+
+                showStatus('jason', `成功載入 ${stockData.jason.length} 筆持股資料和 ${dcaSettings.jason.length} 個定期定額設定`, 'success');
+                loadingText.innerHTML = '🔄 更新Jason資料';
+                renderDashboard('jason');
+            } catch (error) {
+                console.error('Error loading Jason data:', error);
+                showStatus('jason', `載入失敗: ${error.message}`, 'error');
+                loadingText.innerHTML = '🔄 更新Jason資料';
+                
+                // 使用範例資料
+                stockData.jason = [
+                    {
+                        "股票代號": "0056",
+                        "股票名稱": "元大高股息",
+                        "總投入成本": 83942,
+                        "總持有股數": 2256,
+                        "目前股價": 35.2,
+                        "目前總市值": 79411,
+                        "未實現損益": -4531,
+                        "報酬率": -5.40
+                    },
+                    {
+                        "股票代號": "006208",
+                        "股票名稱": "富邦台50",
+                        "總投入成本": 83644,
+                        "總持有股數": 760,
+                        "目前股價": 123.05,
+                        "目前總市值": 93510,
+                        "未實現損益": 9866,
+                        "報酬率": 11.80
+                    }
+                ];
+                
+                dcaSettings.jason = [{
+                    "股票代號": "006208",
+                    "股票名稱": "富邦台50",
+                    "每月投入金額": 7000,
+                    "扣款日": 18,
+                    "券商折扣": 0.27
+                }];
+                
+                renderDashboard('jason');
+            }
+        }
+
+        // Rita 資料載入
+        async function loadRitaData() {
+            const loadingText = document.getElementById('ritaLoadingText');
+            loadingText.innerHTML = '<span class="loading-spinner"></span> 載入中...';
+            showStatus('rita', '正在載入Rita的資料...', 'loading');
+
+            try {
+                const [holdingsResult, dcaResult] = await Promise.all([
+                    loadHoldingsData('rita'),
+                    loadDCASettings('rita')
+                ]);
+
+                showStatus('rita', `成功載入 ${stockData.rita.length} 筆持股資料和 ${dcaSettings.rita.length} 個定期定額設定`, 'success');
+                loadingText.innerHTML = '🔄 更新Rita資料';
+                renderDashboard('rita');
+            } catch (error) {
+                console.error('Error loading Rita data:', error);
+                showStatus('rita', `載入失敗: ${error.message}`, 'error');
+                loadingText.innerHTML = '🔄 更新Rita資料';
+                
+                // 使用範例資料
+                stockData.rita = [
+                    {
+                        "股票代號": "0050",
+                        "股票名稱": "元大台灣50",
+                        "總投入成本": 150000,
+                        "總持有股數": 1000,
+                        "目前股價": 160.5,
+                        "目前總市值": 160500,
+                        "未實現損益": 10500,
+                        "報酬率": 7.00
+                    }
+                ];
+                
+                dcaSettings.rita = [{
+                    "股票代號": "0050",
+                    "股票名稱": "元大台灣50",
+                    "每月投入金額": 10000,
+                    "扣款日": 15,
+                    "券商折扣": 0.28
+                }];
+                
+                renderDashboard('rita');
+            }
+        }
+
+        // OS 資料載入
+        async function loadOSData() {
+            const loadingText = document.getElementById('osLoadingText');
+            loadingText.innerHTML = '<span class="loading-spinner"></span> 載入中...';
+            showStatus('os', '正在載入海外投資資料...', 'loading');
+
+            try {
+                await loadOSHoldingsData();
+                showStatus('os', `成功載入 ${stockData.os.length} 筆海外持股資料`, 'success');
+                loadingText.innerHTML = '🔄 更新海外投資資料';
+                renderOSDashboard();
+            } catch (error) {
+                console.error('Error loading OS data:', error);
+                showStatus('os', `載入失敗: ${error.message}`, 'error');
+                loadingText.innerHTML = '🔄 更新海外投資資料';
+                
+                // 使用範例資料
+                stockData.os = [
+                    {
+                        "股票名稱": "VWRA",
+                        "目前美價": 156.60,
+                        "總持有股數": 315,
+                        "總投入成本(USD)": 37315,
+                        "目前總市值(USD)": 49329,
+                        "目前總市值(NTD)": 1473580,
+                        "未實現損益(USD)": 12014,
+                        "未實現報酬率": 32.19,
+                        "投資損益(不計匯差,NTD)": 358874,
+                        "匯率損益(NTD)": 25649,
+                        "總未實現損益(計算匯差,NTD)": 384522,
+                        "總未實現損益%": 35.16
+                    },
+                    {
+                        "股票名稱": "VUAA",
+                        "目前美價": 122.35,
+                        "總持有股數": 43,
+                        "總投入成本(USD)": 4896,
+                        "目前總市值(USD)": 5261,
+                        "目前總市值(NTD)": 157161,
+                        "未實現損益(USD)": 365,
+                        "未實現報酬率": 7.45,
+                        "投資損益(不計匯差,NTD)": 10891,
+                        "匯率損益(NTD)": -7626,
+                        "總未實現損益(計算匯差,NTD)": 3265,
+                        "總未實現損益%": 2.12
+                    }
+                ];
+                
+                renderOSDashboard();
+            }
+        }
+
+        // 載入持股資料
+        async function loadHoldingsData(person) {
+            const response = await fetch(CSV_URLS[person].holdings);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const csvText = await response.text();
+            
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,
+                    complete: function(results) {
+                        if (results.errors.length > 0) {
+                            console.error('CSV parsing errors:', results.errors);
+                        }
+                        
+                        stockData[person] = results.data
+                            .filter(row => row["股票代號"] || row["Stock Code"])
+                            .map(row => ({
+                                "股票代號": row["股票代號"] || row["Stock Code"] || "",
+                                "股票名稱": row["股票名稱"] || row["Stock Name"] || "",
+                                "總投入成本": parseNumber(row["總投入成本"] || row["Total Cost"]),
+                                "總持有股數": parseNumber(row["總持有股數"] || row["Total Shares"]),
+                                "目前股價": parseNumber(row["目前股價"] || row["Current Price"]),
+                                "目前總市值": parseNumber(row["目前總市值"] || row["Market Value"]),
+                                "未實現損益": parseNumber(row["未實現損益"] || row["Unrealized P&L"]),
+                                "報酬率": parseNumber(row["報酬率"] ? row["報酬率"].toString().replace('%', '') : row["Return Rate"])
+                            }));
+
+                        if (stockData[person].length === 0) {
+                            throw new Error('CSV檔案中沒有有效的資料');
+                        }
+
+                        resolve(stockData[person]);
+                    },
+                    error: function(error) {
+                        reject(new Error(`CSV解析錯誤: ${error.message}`));
+                    }
+                });
+            });
+        }
+
+        // 載入定期定額設定
+        async function loadDCASettings(person) {
+            try {
+                const response = await fetch(CSV_URLS[person].dca);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const csvText = await response.text();
+                
+                return new Promise((resolve) => {
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        dynamicTyping: false,
+                        complete: function(results) {
+                            dcaSettings[person] = results.data
+                                .filter(row => row["股票代號"] && row["股票名稱"])
+                                .map(row => ({
+                                    "股票代號": row["股票代號"] || "",
+                                    "股票名稱": row["股票名稱"] || "",
+                                    "每月投入金額": parseNumber(row["每月投入金額"]),
+                                    "扣款日": parseNumber(row["扣款日"]),
+                                    "券商折扣": parseNumber(row["券商折扣"])
+                                }));
+                            resolve(dcaSettings[person]);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error(`Error loading ${person} DCA settings:`, error);
+                dcaSettings[person] = [];
+                return dcaSettings[person];
+            }
+        }
+
+        // 載入海外投資資料
+        async function loadOSHoldingsData() {
+            const response = await fetch(CSV_URLS.os.holdings);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const csvText = await response.text();
+            
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,
+                    complete: function(results) {
+                        if (results.errors.length > 0) {
+                            console.error('CSV parsing errors:', results.errors);
+                        }
+                        
+                        stockData.os = results.data.map(row => ({
+                            "股票名稱": row["股票名稱"] || row["Stock Name"] || "",
+                            "目前美價": parseNumber(row["目前美價"] || row["Current Price"]),
+                            "總持有股數": parseNumber(row["總持有股數"] || row["Total Shares"]),
+                            "總投入成本(USD)": parseNumber(row["總投入成本(USD)"] || row["Total Cost (USD)"]),
+                            "目前總市值(USD)": parseNumber(row["目前總市值(USD)"] || row["Market Value (USD)"]),
+                            "目前總市值(NTD)": parseNumber(row["目前總市值(NTD)"] || row["Market Value (NTD)"]),
+                            "未實現損益(USD)": parseNumber(row["未實現損益(USD, \"A\")"] || row["Unrealized P&L (USD)"]),
+                            "未實現報酬率": parseNumber(row["未實現報酬率"] || row["Return Rate"]),
+                            "投資損益(不計匯差,NTD)": parseNumber(row["投資損益\n(不計匯差,NTD, \"B\", =A*目前匯率)"] || row["Investment P&L (NTD)"]),
+                            "匯率損益(NTD)": parseNumber(row["匯率損益\n(NTD, \"C\")"] || row["FX P&L (NTD)"]),
+                            "總未實現損益(計算匯差,NTD)": parseNumber(row["總未實現損益\n(計算匯差,NTD, =B+C）"] || row["Total P&L (NTD)"]),
+                            "總未實現損益%": parseNumber(row["總未實現損益%"] || row["Total Return %"])
+                        }));
+
+                        if (stockData.os.length === 0) {
+                            throw new Error('CSV檔案中沒有有效的資料');
+                        }
+
+                        resolve(stockData.os);
+                    },
+                    error: function(error) {
+                        reject(new Error(`CSV解析錯誤: ${error.message}`));
+                    }
+                });
+            });
+        }
+
+        // 渲染台股儀表板 (Jason/Rita)
+        function renderDashboard(person) {
+            if (stockData[person].length === 0) return;
+
+            const totals = stockData[person].reduce((acc, stock) => {
+                acc.totalCost += stock["總投入成本"];
+                acc.totalValue += stock["目前總市值"];
+                acc.totalPL += stock["未實現損益"];
+                return acc;
+            }, { totalCost: 0, totalValue: 0, totalPL: 0 });
+
+            const totalReturn = ((totals.totalPL / totals.totalCost) * 100);
+
+            renderSummaryCards(person, totals, totalReturn);
+            renderPortfolioChart(person);
+            renderProfitLossChart(person);
+            renderHoldingsTable(person);
+
+            document.getElementById(`${person}Dashboard`).style.display = 'block';
+        }
+
+        // 渲染海外投資儀表板
+        function renderOSDashboard() {
+            if (stockData.os.length === 0) return;
+
+            const totals = stockData.os.reduce((acc, stock) => {
+                acc.totalCostUSD += stock["總投入成本(USD)"];
+                acc.totalValueUSD += stock["目前總市值(USD)"];
+                acc.totalValueNTD += stock["目前總市值(NTD)"];
+                acc.totalPLUSD += stock["未實現損益(USD)"];
+                acc.investmentPLNTD += stock["投資損益(不計匯差,NTD)"];
+                acc.fxPLNTD += stock["匯率損益(NTD)"];
+                acc.totalPLNTD += stock["總未實現損益(計算匯差,NTD)"];
+                return acc;
+            }, { 
+                totalCostUSD: 0, 
+                totalValueUSD: 0, 
+                totalValueNTD: 0, 
+                totalPLUSD: 0,
+                investmentPLNTD: 0,
+                fxPLNTD: 0,
+                totalPLNTD: 0
+            });
+
+            const returnRateUSD = ((totals.totalPLUSD / totals.totalCostUSD) * 100);
+            const returnRateNTD = ((totals.totalPLNTD / (totals.totalValueNTD - totals.totalPLNTD)) * 100);
+
+            renderOSSummaryCards(totals, returnRateUSD, returnRateNTD);
+            renderOSPortfolioChart();
+            renderOSProfitLossChart();
+            renderOSExchangeRateChart();
+            renderOSHoldingsTable();
+
+            document.getElementById('osDashboard').style.display = 'block';
+        }
+
+        // 渲染摘要卡片 (台股)
+        function renderSummaryCards(person, totals, totalReturn) {
+            const summaryCards = document.getElementById(`${person}SummaryCards`);
+            
+            summaryCards.innerHTML = `
+                <div class="summary-card">
+                    <h3>總投入成本</h3>
+                    <div class="value">${formatCurrency(totals.totalCost)}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>目前市值</h3>
+                    <div class="value">${formatCurrency(totals.totalValue)}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>未實現損益</h3>
+                    <div class="value ${totals.totalPL >= 0 ? 'profit' : 'loss'}">
+                        ${formatCurrency(totals.totalPL)}
+                    </div>
+                    <div class="change">${formatPercentage(totalReturn)}</div>
+                </div>
+                ${renderDCASettingsCard(person)}
+            `;
+        }
+
+        // 渲染海外投資摘要卡片
+        function renderOSSummaryCards(totals, returnRateUSD, returnRateNTD) {
+            const summaryCards = document.getElementById('osSummaryCards');
+            
+            summaryCards.innerHTML = `
+                <div class="summary-card">
+                    <h3>投資成本 (美元)</h3>
+                    <div class="value">${formatUSD(totals.totalCostUSD)}</div>
+                    <div class="change">持股檔數: ${stockData.os.length}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>目前市值</h3>
+                    <div class="value">${formatUSD(totals.totalValueUSD)}</div>
+                    <div class="sub-value">${formatCurrency(totals.totalValueNTD)}</div>
+                </div>
+                <div class="summary-card currency">
+                    <h3>投資損益 (美元)</h3>
+                    <div class="value ${totals.totalPLUSD >= 0 ? 'profit' : 'loss'}">
+                        ${formatUSD(totals.totalPLUSD)}
+                    </div>
+                    <div class="change">${formatPercentage(returnRateUSD)}</div>
+                </div>
+                <div class="summary-card currency">
+                    <h3>匯率損益 (台幣)</h3>
+                    <div class="value ${totals.fxPLNTD >= 0 ? 'profit' : 'loss'}">
+                        ${formatCurrency(totals.fxPLNTD)}
+                    </div>
+                    <div class="change">匯率波動影響</div>
+                </div>
+                <div class="summary-card total">
+                    <h3>總損益 (台幣)</h3>
+                    <div class="value ${totals.totalPLNTD >= 0 ? 'profit' : 'loss'}">
+                        ${formatCurrency(totals.totalPLNTD)}
+                    </div>
+                    <div class="change">${formatPercentage(returnRateNTD)}</div>
+                </div>
+            `;
+        }
+
+        // 渲染定期定額設定卡片
+        function renderDCASettingsCard(person) {
+            if (dcaSettings[person].length === 0) {
+                return `
+                    <div class="summary-card dca-settings">
+                        <h3>📅 定期定額設定</h3>
+                        <div class="dca-item">
+                            <div style="text-align: center; opacity: 0.8;">
+                                暫無設定資料
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let dcaItemsHtml = '';
+            dcaSettings[person].forEach(setting => {
+                dcaItemsHtml += `
+                    <div class="dca-item">
+                        <div class="stock-info">
+                            <span class="stock-code-name">${setting["股票代號"]} ${setting["股票名稱"]}</span>
+                        </div>
+                        <div class="stock-details">
+                            <div class="detail-item">
+                                <div class="detail-label">每月投入</div>
+                                <div class="detail-value">${formatCurrency(setting["每月投入金額"])}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">扣款日</div>
+                                <div class="detail-value">每月${setting["扣款日"]}號</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="summary-card dca-settings">
+                    <h3>📅 定期定額設定</h3>
+                    ${dcaItemsHtml}
+                </div>
+            `;
+        }
+
+        // 渲染投資組合圖表 (台股)
+        function renderPortfolioChart(person) {
+            const ctx = document.getElementById(`${person}PortfolioChart`).getContext('2d');
+            
+            if (charts[person].portfolio) {
+                charts[person].portfolio.destroy();
+            }
+
+            const labels = stockData[person].map(stock => `${stock["股票代號"]} ${stock["股票名稱"]}`);
+            const data = stockData[person].map(stock => stock["目前總市值"]);
+            const colors = generateColors(stockData[person].length);
+
+            charts[person].portfolio = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const stock = stockData.os[context.dataIndex];
+                                    const percentage = ((context.raw / data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    return [
+                                        `${context.label}`,
+                                        `市值: ${formatUSD(context.raw)}`,
+                                        `佔比: ${percentage}%`,
+                                        `損益: ${formatUSD(stock["未實現損益(USD)"])}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染損益圖表 (台股)
+        function renderProfitLossChart(person) {
+            const ctx = document.getElementById(`${person}ProfitLossChart`).getContext('2d');
+            
+            if (charts[person].profitLoss) {
+                charts[person].profitLoss.destroy();
+            }
+
+            const labels = stockData[person].map(stock => `${stock["股票代號"]} ${stock["股票名稱"]}`);
+            const data = stockData[person].map(stock => stock["未實現損益"]);
+            const colors = data.map(value => value >= 0 ? '#3498db' : '#e74c3c');
+
+            charts[person].profitLoss = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '未實現損益',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                font: {
+                                    size: 9
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const stock = stockData[person][context.dataIndex];
+                                    return [
+                                        `未實現損益: ${formatCurrency(context.raw)}`,
+                                        `報酬率: ${formatPercentage(stock["報酬率"])}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染海外投資損益圖表
+        function renderOSProfitLossChart() {
+            const ctx = document.getElementById('osProfitLossChart').getContext('2d');
+            
+            if (charts.os.profitLoss) {
+                charts.os.profitLoss.destroy();
+            }
+
+            const labels = stockData.os.map(stock => stock["股票名稱"]);
+            const usdData = stockData.os.map(stock => stock["未實現損益(USD)"]);
+            const ntdData = stockData.os.map(stock => stock["總未實現損益(計算匯差,NTD)"]);
+
+            charts.os.profitLoss = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '投資損益 (USD)',
+                            data: usdData,
+                            backgroundColor: '#a8b5c7',
+                            borderColor: '#8fa4b5',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '總損益 (NTD)',
+                            data: ntdData,
+                            backgroundColor: '#a8c7a8',
+                            borderColor: '#8fb58f',
+                            borderWidth: 1,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return formatUSD(value);
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 9
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const stock = stockData.os[context.dataIndex];
+                                    if (context.datasetIndex === 0) {
+                                        return `投資損益: ${formatUSD(context.raw)} (${formatPercentage(stock["未實現報酬率"])})`;
+                                    } else {
+                                        return `總損益: ${formatCurrency(context.raw)} (${formatPercentage(stock["總未實現損益%"])})`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染匯率影響圖表
+        function renderOSExchangeRateChart() {
+            const ctx = document.getElementById('osExchangeRateChart').getContext('2d');
+            
+            if (charts.os.exchangeRate) {
+                charts.os.exchangeRate.destroy();
+            }
+
+            const labels = stockData.os.map(stock => stock["股票名稱"]);
+            const investmentPL = stockData.os.map(stock => stock["投資損益(不計匯差,NTD)"]);
+            const fxPL = stockData.os.map(stock => stock["匯率損益(NTD)"]);
+            const totalPL = stockData.os.map(stock => stock["總未實現損益(計算匯差,NTD)"]);
+
+            charts.os.exchangeRate = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '投資損益 (不計匯差)',
+                            data: investmentPL,
+                            backgroundColor: '#a8b5c7',
+                            borderColor: '#8fa4b5',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '匯率損益',
+                            data: fxPL,
+                            backgroundColor: '#c7b299',
+                            borderColor: '#b5a48a',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '總損益',
+                            data: totalPL,
+                            backgroundColor: '#a8c7a8',
+                            borderColor: '#8fb58f',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                font: {
+                                    size: 9
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染持股表格 (台股)
+        function renderHoldingsTable(person) {
+            const tableContainer = document.querySelector(`#${person}HoldingsTable`).parentElement;
+            
+            // 檢查是否為手機螢幕
+            const isMobile = window.innerWidth <= 430;
+            
+            if (isMobile) {
+                // 手機版卡片式顯示
+                tableContainer.innerHTML = `
+                    <div class="holdings-table-mobile">
+                        <div id="${person}MobileHoldings"></div>
+                    </div>
+                `;
+                
+                let html = '';
+                stockData[person].forEach((stock, index) => {
+                    const profitLossClass = stock["未實現損益"] >= 0 ? 'profit' : 'loss';
+                    const chartId = `${person}_chart_mobile_${index}`;
+                    
+                    html += `
+                        <div class="mobile-stock-card">
+                            <div class="mobile-stock-header">
+                                <div>
+                                    <div class="mobile-stock-code">${stock["股票代號"]}</div>
+                                    <div class="mobile-stock-name">${stock["股票名稱"]}</div>
+                                </div>
+                                <div>
+                                    <div class="mobile-current-price">${formatCurrency(stock["目前股價"])}</div>
+                                    <div class="mobile-profit-loss ${profitLossClass}">
+                                        ${formatPercentage(stock["報酬率"])}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mobile-stock-details">
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">持有股數</span>
+                                    <span class="mobile-detail-value">${stock["總持有股數"].toLocaleString()}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">投入成本</span>
+                                    <span class="mobile-detail-value">${formatCurrency(stock["總投入成本"])}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">目前市值</span>
+                                    <span class="mobile-detail-value">${formatCurrency(stock["目前總市值"])}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">未實現損益</span>
+                                    <span class="mobile-detail-value ${profitLossClass}">${formatCurrency(stock["未實現損益"])}</span>
+                                </div>
+                            </div>
+                            <div class="mobile-chart-section">
+                                <div class="mobile-detail-label">📈 股價走勢</div>
+                                <div class="mobile-chart-container" id="${chartId}">
+                                    <div class="stock-chart-loading">載入走勢圖中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById(`${person}MobileHoldings`).innerHTML = html;
+                
+                // 載入各股票的走勢圖
+                stockData[person].forEach((stock, index) => {
+                    setTimeout(() => {
+                        createStockChart(stock["股票代號"], `${person}_chart_mobile_${index}`);
+                    }, index * 200); // 錯開載入時間避免同時請求過多
+                });
+                
+            } else {
+                // 桌面版表格顯示
+                tableContainer.innerHTML = `
+                    <div class="holdings-table-desktop">
+                        <div class="table-container">
+                            <table id="${person}HoldingsTable"></table>
+                        </div>
+                    </div>
+                `;
+                
+                const table = document.getElementById(`${person}HoldingsTable`);
+                let html = `
+                    <thead>
+                        <tr>
+                            <th>股票代號/名稱</th>
+                            <th>持有股數</th>
+                            <th>目前股價</th>
+                            <th>投入成本</th>
+                            <th>目前市值</th>
+                            <th>未實現損益</th>
+                            <th>報酬率</th>
+                            <th class="chart-column">股價走勢</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+
+                stockData[person].forEach((stock, index) => {
+                    const profitLossClass = stock["未實現損益"] >= 0 ? 'profit' : 'loss';
+                    const chartId = `${person}_chart_${index}`;
+                    
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="stock-code">${stock["股票代號"]}</div>
+                                <div style="font-size: 0.8rem; opacity: 0.8;">${stock["股票名稱"]}</div>
+                            </td>
+                            <td>${stock["總持有股數"].toLocaleString()}</td>
+                            <td>${formatCurrency(stock["目前股價"])}</td>
+                            <td>${formatCurrency(stock["總投入成本"])}</td>
+                            <td>${formatCurrency(stock["目前總市值"])}</td>
+                            <td class="${profitLossClass}">${formatCurrency(stock["未實現損益"])}</td>
+                            <td class="${profitLossClass}">${formatPercentage(stock["報酬率"])}</td>
+                            <td class="chart-column">
+                                <div class="stock-chart-container" id="${chartId}">
+                                    <div class="stock-chart-loading">載入中...</div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody>';
+                table.innerHTML = html;
+
+                // 載入各股票的走勢圖
+                stockData[person].forEach((stock, index) => {
+                    setTimeout(() => {
+                        createStockChart(stock["股票代號"], `${person}_chart_${index}`);
+                    }, index * 200); // 錯開載入時間避免同時請求過多
+                });
+            }
+        }
+
+        // 渲染海外持股表格
+        function renderOSHoldingsTable() {
+            const tableContainer = document.querySelector('#osHoldingsTable').parentElement;
+            
+            // 檢查是否為手機螢幕
+            const isMobile = window.innerWidth <= 430;
+            
+            if (isMobile) {
+                // 手機版卡片式顯示
+                tableContainer.innerHTML = `
+                    <div class="holdings-table-mobile">
+                        <div id="osMobileHoldings"></div>
+                    </div>
+                `;
+                
+                let html = '';
+                stockData.os.forEach((stock, index) => {
+                    const profitLossUSDClass = stock["未實現損益(USD)"] >= 0 ? 'profit' : 'loss';
+                    const profitLossNTDClass = stock["總未實現損益(計算匯差,NTD)"] >= 0 ? 'profit' : 'loss';
+                    const fxClass = stock["匯率損益(NTD)"] >= 0 ? 'profit' : 'loss';
+                    const chartId = `os_chart_mobile_${index}`;
+                    
+                    html += `
+                        <div class="mobile-stock-card">
+                            <div class="mobile-stock-header">
+                                <div>
+                                    <div class="mobile-stock-code">${stock["股票名稱"]}</div>
+                                    <div class="mobile-stock-name">持股 ${stock["總持有股數"].toLocaleString()} 股</div>
+                                </div>
+                                <div>
+                                    <div class="mobile-current-price">${formatUSD(stock["目前美價"])}</div>
+                                    <div class="mobile-profit-loss ${profitLossNTDClass}">
+                                        ${formatPercentage(stock["總未實現損益%"])}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mobile-stock-details">
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">成本(USD)</span>
+                                    <span class="mobile-detail-value">${formatUSD(stock["總投入成本(USD)"])}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">市值(USD)</span>
+                                    <span class="mobile-detail-value">${formatUSD(stock["目前總市值(USD)"])}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">市值(NTD)</span>
+                                    <span class="mobile-detail-value">${formatCurrency(stock["目前總市值(NTD)"])}</span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">投資損益</span>
+                                    <span class="mobile-detail-value ${profitLossUSDClass}">
+                                        ${formatUSD(stock["未實現損益(USD)"])}
+                                    </span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">匯率損益</span>
+                                    <span class="mobile-detail-value ${fxClass}">
+                                        ${formatCurrency(stock["匯率損益(NTD)"])}
+                                    </span>
+                                </div>
+                                <div class="mobile-detail-item">
+                                    <span class="mobile-detail-label">總損益(NTD)</span>
+                                    <span class="mobile-detail-value ${profitLossNTDClass}">
+                                        ${formatCurrency(stock["總未實現損益(計算匯差,NTD)"])}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mobile-chart-section">
+                                <div class="mobile-detail-label">📈 股價走勢</div>
+                                <div class="mobile-chart-container" id="${chartId}">
+                                    <div class="stock-chart-loading">載入走勢圖中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('osMobileHoldings').innerHTML = html;
+                
+                // 載入各股票的走勢圖
+                stockData.os.forEach((stock, index) => {
+                    setTimeout(() => {
+                        createStockChart(stock["股票名稱"], `os_chart_mobile_${index}`);
+                    }, index * 200); // 錯開載入時間避免同時請求過多
+                });
+                
+            } else {
+                // 桌面版表格顯示
+                tableContainer.innerHTML = `
+                    <div class="holdings-table-desktop">
+                        <div class="table-container">
+                            <table id="osHoldingsTable"></table>
+                        </div>
+                    </div>
+                `;
+                
+                const table = document.getElementById('osHoldingsTable');
+                let html = `
+                    <thead>
+                        <tr>
+                            <th>股票代號</th>
+                            <th>持有股數</th>
+                            <th>目前股價<br>(USD)</th>
+                            <th>投入成本<br>(USD)</th>
+                            <th>目前市值<br>(USD)</th>
+                            <th>目前市值<br>(NTD)</th>
+                            <th>投資損益<br>(USD)</th>
+                            <th>報酬率<br>(%)</th>
+                            <th>匯率損益<br>(NTD)</th>
+                            <th>總損益<br>(NTD)</th>
+                            <th>總報酬率<br>(%)</th>
+                            <th class="chart-column">股價走勢</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+
+                stockData.os.forEach((stock, index) => {
+                    const profitLossUSDClass = stock["未實現損益(USD)"] >= 0 ? 'profit' : 'loss';
+                    const profitLossNTDClass = stock["總未實現損益(計算匯差,NTD)"] >= 0 ? 'profit' : 'loss';
+                    const fxClass = stock["匯率損益(NTD)"] >= 0 ? 'profit' : 'loss';
+                    const chartId = `os_chart_${index}`;
+                    
+                    html += `
+                        <tr>
+                            <td class="stock-code">${stock["股票名稱"]}</td>
+                            <td>${stock["總持有股數"].toLocaleString()}</td>
+                            <td>${formatUSD(stock["目前美價"])}</td>
+                            <td>${formatUSD(stock["總投入成本(USD)"])}</td>
+                            <td>${formatUSD(stock["目前總市值(USD)"])}</td>
+                            <td>${formatCurrency(stock["目前總市值(NTD)"])}</td>
+                            <td class="${profitLossUSDClass}">${formatUSD(stock["未實現損益(USD)"])}</td>
+                            <td class="${profitLossUSDClass}">${formatPercentage(stock["未實現報酬率"])}</td>
+                            <td class="${fxClass}">${formatCurrency(stock["匯率損益(NTD)"])}</td>
+                            <td class="${profitLossNTDClass}">${formatCurrency(stock["總未實現損益(計算匯差,NTD)"])}</td>
+                            <td class="${profitLossNTDClass}">${formatPercentage(stock["總未實現損益%"])}</td>
+                            <td class="chart-column">
+                                <div class="stock-chart-container" id="${chartId}">
+                                    <div class="stock-chart-loading">載入中...</div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody>';
+                table.innerHTML = html;
+
+                // 載入各股票的走勢圖
+                stockData.os.forEach((stock, index) => {
+                    setTimeout(() => {
+                        createStockChart(stock["股票名稱"], `os_chart_${index}`);
+                    }, index * 200); // 錯開載入時間避免同時請求過多
+                });
+            }
+        }
+
+        // 頁面載入時自動載入第一個頁籤的資料
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('頁面載入完成，開始載入Jason的資料...');
+            loadJasonData();
+            
+            // 監聽螢幕尺寸變化，重新渲染表格
+            window.addEventListener('resize', function() {
+                if (stockData.jason.length > 0 && document.getElementById('jasonDashboard').style.display !== 'none') {
+                    renderHoldingsTable('jason');
+                }
+                if (stockData.rita.length > 0 && document.getElementById('ritaDashboard').style.display !== 'none') {
+                    renderHoldingsTable('rita');
+                }
+                if (stockData.os.length > 0 && document.getElementById('osDashboard').style.display !== 'none') {
+                    renderOSHoldingsTable();
+                }
+            });
+            
+            // 預載入其他頁籤的範例資料，避免切換時空白
+            setTimeout(() => {
+                // 為Rita設置範例資料
+                stockData.rita = [
+                    {
+                        "股票代號": "0050",
+                        "股票名稱": "元大台灣50",
+                        "總投入成本": 150000,
+                        "總持有股數": 1000,
+                        "目前股價": 160.5,
+                        "目前總市值": 160500,
+                        "未實現損益": 10500,
+                        "報酬率": 7.00
+                    }
+                ];
+                
+                dcaSettings.rita = [{
+                    "股票代號": "0050",
+                    "股票名稱": "元大台灣50",
+                    "每月投入金額": 10000,
+                    "扣款日": 15,
+                    "券商折扣": 0.28
+                }];
+
+                // 為OS設置範例資料
+                stockData.os = [
+                    {
+                        "股票名稱": "VWRA",
+                        "目前美價": 156.60,
+                        "總持有股數": 315,
+                        "總投入成本(USD)": 37315,
+                        "目前總市值(USD)": 49329,
+                        "目前總市值(NTD)": 1473580,
+                        "未實現損益(USD)": 12014,
+                        "未實現報酬率": 32.19,
+                        "投資損益(不計匯差,NTD)": 358874,
+                        "匯率損益(NTD)": 25649,
+                        "總未實現損益(計算匯差,NTD)": 384522,
+                        "總未實現損益%": 35.16
+                    },
+                    {
+                        "股票名稱": "VUAA",
+                        "目前美價": 122.35,
+                        "總持有股數": 43,
+                        "總投入成本(USD)": 4896,
+                        "目前總市值(USD)": 5261,
+                        "目前總市值(NTD)": 157161,
+                        "未實現損益(USD)": 365,
+                        "未實現報酬率": 7.45,
+                        "投資損益(不計匯差,NTD)": 10891,
+                        "匯率損益(NTD)": -7626,
+                        "總未實現損益(計算匯差,NTD)": 3265,
+                        "總未實現損益%": 2.12
+                    }
+                ];
+            }, 1000);
+        });
+    </script>
+</body>
+</html>,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const stock = stockData[person][context.dataIndex];
+                                    const percentage = ((context.raw / data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    return [
+                                        `${context.label}`,
+                                        `市值: ${formatCurrency(context.raw)}`,
+                                        `佔比: ${percentage}%`,
+                                        `損益: ${formatCurrency(stock["未實現損益"])}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染海外投資組合圖表
+        function renderOSPortfolioChart() {
+            const ctx = document.getElementById('osPortfolioChart').getContext('2d');
+            
+            if (charts.os.portfolio) {
+                charts.os.portfolio.destroy();
+            }
+
+            const labels = stockData.os.map(stock => stock["股票名稱"]);
+            const data = stockData.os.map(stock => stock["目前總市值(USD)"]);
+            const colors = generateColors(stockData.os.length);
+
+            charts.os.portfolio = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#faf7f4'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
