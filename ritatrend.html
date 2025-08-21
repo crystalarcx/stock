@@ -852,7 +852,7 @@
             rita: {
                 holdings: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=978973401&single=true&output=csv',
                 dca: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=0&single=true&output=csv',
-                trend: 'PLACEHOLDER_URL_FOR_RITA_TREND_DATA' // 預留位置，之後放入 Rita 的趨勢資料 CSV 連結
+                trend: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=579072864&single=true&output=csv' // 預留位置，之後放入 Rita 的趨勢資料 CSV 連結
             },
             os: {
                 holdings: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLh_tEC6tU48fIQsBv6RoFFVj2jZggf8eD2TL2DcKksWzvXBSm1oMtq4OzNlJWrvoiDfti8RQPki2L/pub?gid=1484612057&single=true&output=csv'
@@ -1950,7 +1950,7 @@
             
             try {
                 // 檢查是否為 placeholder URL
-                if (CSV_URLS[person].trend === 'PLACEHOLDER_URL_FOR_RITA_TREND_DATA') {
+                if (CSV_URLS[person].trend === 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA0SRsn13OXA07qb9KvUNHZIhsuejDBxcWSCYcMHaSd3QfPZVhJ84942K_zqx1nEtZpOllKKxpDIU5/pub?gid=579072864&single=true&output=csv') {
                     throw new Error('尚未設定趨勢資料連結');
                 }
                 
